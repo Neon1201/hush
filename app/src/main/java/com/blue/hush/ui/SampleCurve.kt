@@ -11,19 +11,38 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.blue.hush.session.StateSample
 
-/**
- * Visual smoothing parameters.
- * - SMOOTH_WINDOW: moving-average window in seconds. Larger = softer.
- * - GAP_SECONDS: gaps longer than this are considered real breaks and bridged with a dashed line.
- * - TENSION: Catmull-Rom tension.
- */
-private const val SMOOTH_WINDOW = 10
-private const val GAP_SECONDS = 30
+/** Three-second centered average, confined to consecutive measured runs. */
+internal fun smoothedCurvePoints(
+    samples: List<StateSample>, levelAt: (StateSample) -> Double?,
+): List<Pair<Int, Double>> {
+    val result = mutableListOf<Pair<Int, Double>>()
+    var run = mutableListOf<Pair<Int, Double>>()
+    fun flush() {
+        for (i in run.indices) {
+            val from = (i - 1).coerceAtLeast(0)
+            val to = (i + 1).coerceAtMost(run.lastIndex)
+            result += run[i].first to (from..to).map { run[it].second }.average()
+        }
+        run = mutableListOf()
+    }
+    for (sample in samples) {
+        val value = levelAt(sample)
+        if (value == null) {
+            flush()
+            continue
+        }
+        if (run.isNotEmpty() && sample.elapsedSeconds - run.last().first != 1) flush()
+        run += sample.elapsedSeconds to value
+    }
+    flush()
+    return result
+}
+
 private const val TENSION = 0.25f
 
 /**
  * Draws measured runs and decorative gap guides; callers own validation and plot coordinates.
- * Visual strategy: moving-average smoothing → Catmull-Rom solid curve → dashed bridge over gaps.
+ * Visual strategy: three-second moving average → Catmull-Rom solid curve → dashed bridge over gaps.
  */
 internal fun DrawScope.drawSampleCurve(
     samples: List<StateSample>, elapsedSeconds: Int, color: Color,
@@ -37,37 +56,10 @@ internal fun DrawScope.drawSampleCurve(
         pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
     )
 
-    // 1) Collect every valid (second, level) pair.
-    val rawPoints = ArrayList<Pair<Int, Double>>()
-    for (sample in samples) {
-        val level = levelAt(sample) ?: continue
-        rawPoints += sample.elapsedSeconds to level
-    }
-    if (rawPoints.isEmpty()) return
-
-    // 2) Apply a per-second moving average to flatten jitter.
-    val smoothed = ArrayList<Pair<Int, Double>>()
-    val half = SMOOTH_WINDOW / 2
-    val firstSecond = rawPoints.first().first
-    val lastSecond = rawPoints.last().first
-    var cursor = 0
-    var second = firstSecond
-    while (second <= lastSecond) {
-        while (cursor < rawPoints.size && rawPoints[cursor].first < second - half) cursor++
-        var sum = 0.0
-        var count = 0
-        var j = cursor
-        while (j < rawPoints.size && rawPoints[j].first <= second + half) {
-            sum += rawPoints[j].second
-            count++
-            j++
-        }
-        if (count > 0) smoothed += second to (sum / count)
-        second++
-    }
+    val smoothed = smoothedCurvePoints(samples, levelAt)
     if (smoothed.isEmpty()) return
 
-    // 3) Split smoothed points into segments at GAP_SECONDS and record the gaps for bridging.
+    // 3) Split smoothed points into segments at missing seconds and record the gaps for bridging.
     data class Segment(val points: MutableList<Offset> = mutableListOf())
     val segments = mutableListOf<Segment>()
     val gaps = mutableListOf<Pair<Offset, Offset>>()   // gap endpoints (for dashed bridging)
@@ -76,7 +68,7 @@ internal fun DrawScope.drawSampleCurve(
     var previousPoint: Offset? = null
     for ((sec, level) in smoothed) {
         val point = pointAt(sec, level)
-        if (previousSecond != null && sec - previousSecond!! > GAP_SECONDS) {
+        if (previousSecond != null && sec - previousSecond!! > 1) {
             if (current.points.isNotEmpty()) segments += current
             // Record the gap: last point of the previous segment → first point of the next.
             previousPoint?.let { gaps += it to point }

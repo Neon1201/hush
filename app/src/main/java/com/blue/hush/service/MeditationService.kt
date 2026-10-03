@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.blue.hush.audio.AmbientAudioEngine
+import com.blue.hush.audio.SessionCuePlayer
 import com.blue.hush.muse.MuseConnectionRuntime
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionResultClassifier
@@ -240,6 +241,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         }
         handler.removeCallbacks(tick)
         handler.post(tick)
+        SessionCuePlayer.play(applicationContext, finished = false)
     }
 
     private fun pauseSession() {
@@ -290,6 +292,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         MuseConnectionRuntime.detach(this)
         museManager = null
         sessionId = null
+        SessionCuePlayer.play(applicationContext, finished = true)
         handler.removeCallbacksAndMessages(null)
         stopSelf()
     }

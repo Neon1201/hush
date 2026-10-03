@@ -59,6 +59,9 @@ internal fun CompletionScreen(
                             autoPlay = true, showMetricControls = false, scaleLabel = "Calmness")
                     }
                 } }
+                item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.lg)) {
+                    DataCoverageSummary(samples, state.elapsedSeconds)
+                } }
                 item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     PrimaryAction("Results", onShowResults,
                         Modifier.widthIn(max = HushSpace.contentWidth).padding(horizontal = HushSpace.lg))
@@ -77,6 +80,7 @@ internal fun CompletionScreen(
                 .padding(horizontal = HushSpace.lg).padding(bottom = HushSpace.lg),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
                 SessionScoreSummary(state.elapsedSeconds, state.scores)
+                DataCoverageSummary(samples, state.elapsedSeconds)
                 TextButton(onClick = onDetails, enabled = detailAvailable, modifier = Modifier.fillMaxWidth()) {
                     Text("More Details")
                 }

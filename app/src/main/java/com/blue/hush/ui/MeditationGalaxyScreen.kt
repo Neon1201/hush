@@ -137,6 +137,7 @@ internal fun MeditationGalaxyScreen(
                     .verticalScroll(rememberScrollState()).padding(horizontal = HushSpace.xl, vertical = HushSpace.md),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.sm), horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                CalmnessChart(state.trendSamples, state.elapsedSeconds, plotHeight = 104.dp)
                 Text(formatDuration(state.plannedSeconds - state.elapsedSeconds), style = MaterialTheme.typography.displayLarge, color = HushColors.Text)
                 Text("Time remaining", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
                 OutlinedButton(
@@ -158,7 +159,6 @@ internal fun MeditationGalaxyScreen(
                     }
                 }
                 TextButton(onClick = { confirmFinish = true }) { Text("Finish") }
-                CalmnessChart(state.trendSamples, state.elapsedSeconds)
             }
     }
     if (musicSheet) SoundscapeSheet(state.track, onTrackSelected, onDismiss = { musicSheet = false },

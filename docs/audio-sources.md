@@ -37,3 +37,5 @@ The focused device test checks all three packaged recordings for successful deco
 ```
 
 The broader existing screen tests cover soundscape selection and preview dismissal. Manually listen to each preview and its loop boundary with headphones on a target device, then check session volume, pause/resume, and playback while locked. Automated decoding and loop checks cannot establish perceived recording quality or inaudibility of the loop seam.
+
+Session start/end cues are original generated PCM WAV chimes (44.1 kHz mono, 2.2 seconds), bundled as session_start.wav and session_end.wav. Start uses two rising notes; completion uses three descending notes. They play once at media-stream volume with fixed player gain, independent of ambient-track volume; system mute still applies. Playback does not restart on pause/resume or replay. Perceived volume and clarity require listening on the target device.
