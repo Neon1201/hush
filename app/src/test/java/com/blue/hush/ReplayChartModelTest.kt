@@ -3,7 +3,10 @@ package com.blue.hush
 import com.blue.hush.session.StateSample
 import com.blue.hush.ui.ReplayMetric
 import com.blue.hush.ui.ReplayViewport
-import com.blue.hush.ui.replayLabelTops
+import com.blue.hush.ui.smoothedCurvePoints
+import com.blue.hush.ui.metricCoverage
+import com.blue.hush.ui.MetricCoverage
+import com.blue.hush.ui.CoverageStatus
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -54,14 +57,41 @@ class ReplayChartModelTest {
         }
     }
 
-    @Test fun coincidentAndEdgeLabelsFitWithoutOverlap() {
-        listOf(0f, 120f, 240f).forEach { center ->
-            val heights = listOf(20f, 32f, 20f, 32f, 20f, 32f)
-            val tops = replayLabelTops(List(6) { center }, heights, 240f, 4f)
-            assertTrue(tops.first() >= 0)
-            assertTrue(tops.last() + heights.last() <= 240f)
-            for (index in 1..tops.lastIndex) assertTrue(tops[index] >= tops[index - 1] + heights[index - 1] + 4f)
-        }
-        assertTrue(replayLabelTops(emptyList(), emptyList(), 240f, 4f).isEmpty())
+    @Test fun threeSecondAverageSharesCurveValuesAndPreservesGaps() {
+        val samples = listOf(
+            StateSample(0, calmness = 0.0, valid = true),
+            StateSample(1, calmness = 0.9, valid = true),
+            StateSample(2, calmness = 0.0, valid = true),
+            StateSample(3, valid = true),
+            StateSample(4, calmness = 1.0, valid = true),
+            StateSample(7, calmness = 0.2, valid = true),
+        )
+        val points = smoothedCurvePoints(samples, ReplayMetric.CALMNESS::value).toMap()
+        assertEquals(0.45, points.getValue(0), 0.00001)
+        assertEquals(0.3, points.getValue(1), 0.00001)
+        assertEquals(0.45, points.getValue(2), 0.00001)
+        assertFalse(points.containsKey(3))
+        assertEquals(1.0, points.getValue(4), 0.0)
+        assertEquals(0.2, points.getValue(7), 0.0)
     }
+    @Test fun coverageCountsIndependentMeasuredSecondsWithoutFillingGaps() {
+        val samples = listOf(
+            StateSample(1, valid = true, algorithmVersion = 5, calmness = 0.5, stillness = 0.8),
+            StateSample(2, valid = true, algorithmVersion = 5, heartRateBpm = 80.0),
+            StateSample(3, valid = false, algorithmVersion = 5, calmness = 0.5),
+            StateSample(4, valid = true, algorithmVersion = 0, calmness = 0.5),
+        )
+        assertEquals(25, metricCoverage(samples, 4, ReplayMetric.CALMNESS).percent)
+        assertEquals(1, metricCoverage(samples, 4, ReplayMetric.HEART_RATE).measuredSeconds)
+        assertEquals(0, metricCoverage(samples, 0, ReplayMetric.CALMNESS).percent)
+    }
+
+    @Test fun coverageThresholdsUseExactRatio() {
+        assertEquals(CoverageStatus.LOW, MetricCoverage(49, 100).status)
+        assertEquals(CoverageStatus.LIMITED, MetricCoverage(50, 100).status)
+        assertEquals(CoverageStatus.LIMITED, MetricCoverage(699, 1000).status)
+        assertEquals(CoverageStatus.AVAILABLE, MetricCoverage(70, 100).status)
+        assertEquals(CoverageStatus.LOW, MetricCoverage(0, 0).status)
+    }
+
 }

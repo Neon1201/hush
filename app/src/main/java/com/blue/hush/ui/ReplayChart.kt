@@ -65,6 +65,20 @@ internal fun ReplayChart(
         viewSpan = next.span
     }
     val metrics = ReplayMetric.entries.filter { it in visibleMetrics }
+    val smoothedValues = remember(samples) {
+        ReplayMetric.entries.associateWith { metric ->
+            smoothedCurvePoints(samples, metric::value).toMap()
+        }
+    }
+    val displayedSample = selectedSample?.let { selected ->
+        fun value(metric: ReplayMetric) = smoothedValues.getValue(metric)[selected.elapsedSeconds]
+        selected.copy(
+            calmness = value(ReplayMetric.CALMNESS), stillness = value(ReplayMetric.STABILITY),
+            alpha = value(ReplayMetric.ALPHA), theta = value(ReplayMetric.THETA),
+            beta = value(ReplayMetric.BETA), heartRateBpm = value(ReplayMetric.HEART_RATE),
+        )
+    }
+
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall
@@ -145,7 +159,7 @@ internal fun ReplayChart(
             val topTickSpace = upperTick.size.height + gap
             val plotHeight = with(density) { (heightPx + topTickSpace).toDp() }
             Box {
-                val description = metrics.joinToString(", ") { it.label(selectedSample) }
+                val description = metrics.joinToString(", ") { it.label(displayedSample) }
                 Canvas(Modifier.fillMaxWidth().height(plotHeight).semantics {
                     contentDescription = "Session replay"
                     stateDescription = listOf(formatDuration(selectedSample?.elapsedSeconds ?: 0), description)
@@ -245,7 +259,7 @@ internal fun ReplayChart(
                         val cursorX = x(selected.elapsedSeconds)
                         drawLine(HushColors.Accent, Offset(cursorX, plotTop), Offset(cursorX, plotTop + height), 2.dp.toPx())
                         metrics.forEach { metric ->
-                            val value = metric.value(selected) ?: return@forEach
+                            val value = metric.value(displayedSample) ?: return@forEach
                             val point = Offset(cursorX, y(metric.level(value).toFloat()))
                             drawCircle(metric.color, 3.dp.toPx(), point)
                         }
@@ -259,6 +273,7 @@ internal fun ReplayChart(
             Text(formatDuration((viewport.start * elapsedSeconds).roundToInt()), style = labelStyle, color = HushColors.Muted)
             Text(formatDuration((viewport.end * elapsedSeconds).roundToInt()), style = labelStyle, color = HushColors.Muted)
         }
+        Text("Dashed lines: no measured data", style = labelStyle, color = HushColors.Muted)
         if (showMetricControls) listOf(
             listOf(ReplayMetric.CALMNESS, ReplayMetric.STABILITY, ReplayMetric.HEART_RATE),
             listOf(ReplayMetric.ALPHA, ReplayMetric.THETA, ReplayMetric.BETA),
@@ -288,7 +303,7 @@ internal fun ReplayChart(
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (metric in visibleMetrics) {
                                 Text(
-                                    text = metric.displayValue(selectedSample),
+                                    text = metric.displayValue(displayedSample),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = metric.color,
                                     maxLines = 1,

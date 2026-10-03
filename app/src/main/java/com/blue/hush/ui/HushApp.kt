@@ -123,7 +123,10 @@ fun HushApp(
                 LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(horizontal = HushSpace.lg, vertical = HushSpace.sm), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                     item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Hush", style = MaterialTheme.typography.headlineLarge)
-                        MusicButton(selectedTrack.title, onClick = { musicSheet = true })
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ChartHelpButton()
+                            MusicButton(selectedTrack.title, onClick = { musicSheet = true })
+                        }
                     } }
                     item { GalaxyParticleField(null, dataGap = false, paused = false,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), state = galaxyMotion, preview = true) }
@@ -209,7 +212,11 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
         )
     }
     LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-        item { Text("History", style = MaterialTheme.typography.headlineLarge) }
+        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("History", style = MaterialTheme.typography.headlineLarge)
+            ChartHelpButton()
+        } }
         if (history.isEmpty()) item { HushPanel(Modifier.fillMaxWidth()) { Text("Your quiet moments, collected."); Text("Complete a session to see it here.", color = HushColors.Muted) } }
         items(history, key = { it.id }) { summary ->
             val dismissState = rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.4f })
@@ -295,6 +302,12 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
                         },
                         onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) },
                         autoPlay = true)
+                }
+            } }
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                HushPanel(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth()
+                    .padding(horizontal = HushSpace.xl)) {
+                    DataCoverageSummary(samples, summary.actualSeconds)
                 }
             } }
         }
